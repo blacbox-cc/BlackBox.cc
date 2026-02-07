@@ -39,11 +39,20 @@ class CreateNoteSkill:
                 f.write(content)
             
             return {
+                "attempted": True,
                 "success": True,
-                "filename": filename,
-                "path": filepath,
-                "content": content
+                "error": None,
+                "data": {
+                    "filename": filename,
+                    "path": filepath,
+                    "content": content
+                }
             }
             
         except Exception as e:
-            return {"success": False, "error": str(e)}
+            return {
+                "attempted": True,
+                "success": False,
+                "error": f"No se pudo crear nota: {str(e)}",
+                "data": None
+            }

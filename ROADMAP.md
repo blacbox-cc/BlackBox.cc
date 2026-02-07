@@ -1,284 +1,212 @@
-1️⃣ Principios del roadmap (no negociables)
+# 🧠 JarvisAI Roadmap — v0.0.3 → v0.1.0
+
+## Principios no negociables
+- Estabilidad > inteligencia bruta
+- Inteligencia visible y explicable
+- Procesamiento por capas
+- Separación estricta entre:
+  - Interpretación
+  - Decisión
+  - Ejecución
+  - Reflexión
+- Cada versión cierra un loop completo:
+  Input → Interpretación → Acción → Reflexión → Valor observable
+
+---
+
+## 📦 v0.0.3 — Baseline Cognitive Core (LOCKED)
+
+### Rol
+Base técnica estable, determinista y testeada.
+
+### Estado
+✔ Core funcional  
+✔ Memoria persistente  
+✔ Skills system sólido  
+✔ Tests pasando  
+
+### No se agregan features nuevas
+Solo fixes críticos si rompen:
+- determinismo
+- boot
+- tests
+
+---
+
+## 🔵 v0.0.4 — Stability & Observability
+
+### Objetivo
+Que Jarvis sea **confiable y entendible** incluso cuando falla.
+
+### Core / Infra
+- Manejo de errores tipados
+- Validación estricta de config (schema)
+- Health checks por componente
+- Graceful degradation real
+
+### CLI
+- `--debug`
+- NLU trace visible
+- Confidence score por intent
+- Errores con causa + sugerencia
+
+### Brain
+- ContextManager obligatorio en NLU
+- Registro de decisiones
+- Reflexión post-skill (solo lectura)
+
+### Docs
+- ARCHITECTURE.md actualizado
+- “How Jarvis Thinks”
+- Guía de contribución a skills
+- CHANGELOG formal
+
+📌 Valor:
+Jarvis nunca “se rompe en silencio”.
+
+---
+
+## 🟢 v0.0.5 — Explainable NLU & Layered NLP
+
+### Objetivo
+NLU simple pero **explicable y trazable**.
+
+### NLU / NLP
+- Pipeline por capas:
+  1. Normalización
+  2. Parsing
+  3. Intent detection
+  4. Confidence scoring
+- Threshold de confianza
+- Manejo de ambigüedad
+- Spell correction básica
 
-Estas reglas explican por qué el roadmap es así:
+### CLI UX
+- Respuesta estructurada:
+  - Interpretación
+  - Acción
+  - Resultado
+- Comando `why`
+
+### Skills
+- Metadata obligatoria:
+  - Qué hace
+  - Riesgos
+  - Tiempo estimado
+- Pre-checks antes de ejecutar
+
+📌 Valor:
+Jarvis “piensa en voz alta”.
+
+---
 
-🔒 Estabilidad > Inteligencia bruta
+## 🟡 v0.0.6 — Memory That Matters & User Profiling
 
-Un asistente que “a veces entiende” pero siempre explica vale más que uno inteligente pero opaco.
+### Objetivo
+Memoria útil, no acumulación ciega.
 
-👁️ Inteligencia visible
+### Memory
+- Short-term vs long-term
+- Consolidación automática
+- Facts con confidence-weight
+- Pruning inteligente
 
-Cada release debe hacer que el usuario:
+### User Profile
+- `what_do_you_know_about_me`
+- Preferencias detectadas
+- Resumen por sesiones
 
-“entienda qué pensó Jarvis y por qué hizo lo que hizo”
+### Skills nuevas
+- summarize_week
+- frequent_actions
+- patterns_detected
 
-🔁 Loop completo en cada versión
-Input → Interpretación → Acción → Reflexión → Mejora perceptible
+📌 Valor:
+Jarvis reconoce patrones reales del usuario.
 
-🧱 Escalabilidad por capas
+---
 
-Nada de features que:
+## 🟠 v0.0.7 — Reflection & Recommendation Engine
 
-rompan contratos
+### Objetivo
+Jarvis ayuda a mejorar decisiones (sin ejecutar).
 
-obliguen a refactors masivos
+### Reflection Engine
+- Análisis de sesiones
+- Detección de fricción
+- Reglas de mejora
 
-mezclen ejecución con razonamiento
+### Recomendaciones
+- Automatizaciones sugeridas
+- Repeticiones detectadas
+- Fallos recurrentes
 
-2️⃣ Rol de cada versión (visión global)
-Versión	Rol
-v0.0.4	Estabilización + Observabilidad
-v0.0.5	Comprensión explicable
-v0.0.6	Memoria útil y perfilado
-v0.0.7	Reflexión y recomendaciones
-v0.0.8	Autonomía supervisada
-v0.1.0	Producto alfa serio
-3️⃣ Roadmap detallado
-🔵 v0.0.4 — “Stability & Clarity Release”
+### Seguridad
+- ❌ Ninguna acción automática
+- ✔ Todo pasa por aprobación
 
-Objetivo: Sistema sólido, entendible, confiable
+📌 Valor:
+Jarvis piensa sobre cómo trabajás.
 
-Qué DEBE tener (obligatorio)
-Core & Infra
+---
 
- Hardening de error handling (excepciones específicas)
+## 🔴 v0.0.8 — Supervised Autonomy & Concurrency
 
- Validación estricta de config (schema)
+### Objetivo
+Autonomía **controlada y concurrente**.
 
- Health checks por componente
+### Planning
+- Descomposición de objetivos
+- Plan → aprobación → ejecución
+- Simulación previa (dry-run)
 
- Graceful degradation real (no crashes)
+### Concurrencia
+- Gestión de hilos
+- Multi-task controlado
+- Cancelación segura
 
-CLI (muy importante)
+### Sistema
+- Permisos por acción
+- Logs de impacto
+- Auditoría básica
 
- Modo --debug
+📌 Valor:
+Jarvis ejecuta, pero nunca sin permiso.
 
- NLU Trace visible
+---
 
- Confidence score por intent
+## 🟣 v0.1.0 — Serious Alpha Product
 
- Errores con causa + sugerencia
+### Objetivo
+Jarvis usable por terceros técnicos.
 
-Brain
+### Producto
+- CLI robusta
+- Voice estable
+- Multi-session real
+- Estado persistente confiable
 
- ContextManager usado SIEMPRE en NLU
+### Ingeniería
+- API interna estable
+- Versionado semántico
+- Tests de regresión
+- Benchmarks automáticos
 
- Reflexión post-skill (solo lectura)
-
- Registro de decisiones (por qué hizo X)
-
-Docs
-
- ARCHITECTURE actualizado
-
- “How Jarvis thinks” (conceptual)
-
- Guía de contribución a skills
-
- CHANGELOG formal
-
-NO incluir
-
-❌ ML complejo
-❌ Autonomía
-❌ Auto-programación
-
-📌 Valor visible:
-Jarvis ahora explica lo que entiende y no sorprende con errores raros.
-
-🟢 v0.0.5 — “Explainable Intelligence”
-
-Objetivo: Que Jarvis parezca inteligente aunque todavía sea simple
-
-Features clave
-NLU
-
- Intent confidence threshold
-
- Intent ambiguity handling
-
- “Creo que quisiste decir…” (top 2 intents)
-
- Spell correction básica
-
-CLI UX
-
- Respuesta estructurada:
-
-Interpretación
-
-Acción
-
-Resultado
-
- Modo why:
-
-> why
-→ Porque detecté intent X con 0.73 de confianza
-
-Skills
-
- Metadata por skill (qué hace, riesgos)
-
- Pre-checks de ejecución
-
- Tiempo estimado de ejecución
-
-📌 Valor visible:
-Jarvis razona en voz alta.
-
-🟡 v0.0.6 — “Memory That Matters”
-
-Objetivo: Memoria útil, no solo persistente
-
-Features clave
-Memory
-
- Short-term vs long-term memory
-
- Consolidación automática
-
- Confidence-weighted facts
-
- Pruning inteligente
-
-User Profile
-
- what_do_you_know_about_me
-
- Preferencias detectadas (horarios, comandos)
-
- Historial resumido por sesiones
-
-Skills nuevas
-
- summarize_week
-
- patterns_detected
-
- frequent_actions
-
-📌 Valor visible:
-Jarvis recuerda patrones, no solo frases.
-
-🟠 v0.0.7 — “Reflection & Recommendation”
-
-Objetivo: Jarvis empieza a ayudar proactivamente (sin ejecutar)
-
-Features clave
-Reflection Engine
-
- Análisis de sesiones
-
- Detección de fricción
-
- Reglas de mejora
-
-Recomendaciones
-
- “Podrías automatizar X”
-
- “Hiciste esto 5 veces esta semana”
-
- “Esto falló 3 veces”
-
-Seguridad
-
- Ninguna acción automática
-
- Todo pasa por aprobación explícita
-
-📌 Valor visible:
-Jarvis piensa sobre tu forma de trabajar.
-
-🔴 v0.0.8 — “Supervised Autonomy”
-
-Objetivo: Empezar autonomía sin perder control
-
-Features clave
-Planning
-
- Descomposición de objetivos
-
- Plan → aprobación → ejecución
-
- Simulación de plan antes de ejecutar
-
-Control del sistema
-
- Acciones con permisos
-
- Modo dry-run
-
- Logs de impacto
-
-CLI
-
- “Ejecutar plan”
-
- “Cancelar”
-
- “Mostrar consecuencias”
-
-📌 Valor visible:
-Jarvis ayuda a decidir y ejecutar, no actúa solo.
-
-🟣 v0.1.0 — “Serious Alpha”
-
-Objetivo: Producto usable por terceros técnicos
-
-Requisitos mínimos
-Producto
-
- CLI robusta
-
- Voice estable
-
- Multi-session real
-
- Estado persistente confiable
-
-Ingeniería
-
- API interna estable
-
- Versioning semántico
-
- Tests de regresión
-
- Benchmarks automáticos
-
-Seguridad
-
- Roles
-
- Auditoría
-
- Safe defaults
+### Seguridad
+- Roles
+- Auditoría completa
+- Safe defaults
 
 📌 Resultado:
-JarvisAI deja de ser “proyecto interesante” y pasa a ser producto alfa serio.
+Jarvis deja de ser experimento y pasa a ser producto alfa serio.
 
-4️⃣ Definition of Done (para TODAS las versiones)
+---
 
-Una versión NO se libera si no cumple:
+## ✅ Definition of Done (todas las versiones)
 
-✔ Boot sin warnings
-
-✔ Tests pasando
-
-✔ Docs actualizadas
-
-✔ Valor observable desde CLI
-
-✔ Ninguna feature “a medias”
-
-✔ Sin deuda escondida
-
-5️⃣ Riesgos a evitar (muy importante)
-
-❌ Meter ML “porque sí”
-❌ Autonomía sin trazabilidad
-❌ UX pobre en CLI
-❌ Features sin explicación
-❌ Refactors grandes sin necesidad
+- Boot sin warnings
+- Tests pasando
+- Docs actualizadas
+- Valor observable desde CLI
+- Ninguna feature a medias
+- Cero deuda escondida

@@ -190,7 +190,8 @@ class JarvisCore:
             self.nlu = NLUPipeline(
                 self.skill_dispatcher.skills, 
                 debug=self.config.get("debug_nlu", False),
-                context_manager=self.context_manager  # Pass context manager for awareness
+                context_manager=self.context_manager,  # Pass context manager for awareness
+                runtime_state=self.state  # NEW v0.0.3.1: Pass state for decision storage
             )
             self._components_initialized.append("nlu_pipeline")
         except Exception as e:
@@ -229,12 +230,15 @@ class JarvisCore:
         # Runtime Manager - para debug y control
         self.runtime_manager = RuntimeManager(self)
         
-        # Suscripciones a eventos
+        # Suscripciones a eventos (V0.0.3.1: Added cognitive events)
         self.events.subscribe(EVENT_NLU_INTENT, self.handlers.handle_skill_intent)
         self.events.subscribe(EVENT_INPUT_TEXT, self.handlers.handle_input_text)
         self.events.subscribe(EVENT_INPUT_VOICE, self.handlers.handle_input_voice)
         self.events.subscribe(EVENT_JARVIS_RESPONSE, self.handlers.handle_response)
         self.events.subscribe("nlu.intent", self.handlers.handle_nlu_trace)  # NLU trace for debug mode
+        
+        # V0.0.3.1: Subscribe to cognitive events
+        self.events.subscribe("cognitive.decision_made", self._handle_decision_made)
         
         # Boot components
         self._initializer = Initializer(self)
@@ -274,6 +278,8 @@ class JarvisCore:
         from skills.research.research_skill import ResearchSkill
         from skills.learning.context_awareness import ContextAwarenessSkill
         from skills.system.manage_resources import ManageResourcesSkill
+        # NEW v0.0.3.1: Safe greetings
+        from skills.system.social_greeting import SocialGreetingSkill
         # NEW v0.0.6: Advanced features
         from skills.productivity.open_app_advanced import OpenAppAdvancedSkill
         from skills.research.internet_search import InternetSearchSkill, StackOverflowSearchSkill, GitHubSearchSkill
@@ -298,6 +304,8 @@ class JarvisCore:
             "research_skill": ResearchSkill(),
             "context_awareness": ContextAwarenessSkill(),
             "manage_resources": ManageResourcesSkill(),
+            # NEW v0.0.3.1: Safe greetings
+            "social_greeting": SocialGreetingSkill(),
             # NEW v0.0.6: Advanced skills
             "open_app_advanced": OpenAppAdvancedSkill(),
             "internet_search": InternetSearchSkill(),
@@ -395,6 +403,27 @@ class JarvisCore:
 
             # Mostrar sugerencias si hay
             suggestions = self.data_collector.get_suggestions()
+            
+            return True
+        except Exception as e:
+            self.logger.log_error("BOOT_ERROR", str(e))
+            self.state.set("DEAD")
+            raise BootError(f"Boot sequence failed: {e}", {"component": "boot"})
+    
+    def _handle_decision_made(self, event):
+        """
+        V0.0.3.1: Handle decision_made event to store Decision in state.
+        Called when NLU emits cognitive.decision_made event.
+        """
+        try:
+            decision_data = event.get("data", {})
+            # Recreate Decision from dict if needed
+            # For now, NLU already stores it, this is just for redundancy
+            if hasattr(self.nlu, '_last_decision'):
+                decision = self.nlu._last_decision
+                self.state.add_decision(decision)
+        except Exception as e:
+            self.logger.logger.debug(f"Failed to store decision: {e}")
             if suggestions:
                 print("\n[INFO] Suggestions based on your usage:")
                 for s in suggestions:

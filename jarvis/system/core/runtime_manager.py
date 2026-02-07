@@ -67,7 +67,7 @@ class RuntimeManager:
 
     def _show_welcome(self):
         """Show welcome screen with system information"""
-        self.core.cli.print_header("JARVIS AI v0.0.4 - MULTIMODAL")
+        self.core.cli.print_header("JARVIS AI v0.0.3.1 - EXPLICIT REASONING")
 
         self.core.cli.print_system_status({
             "estado": "LISTO",
@@ -84,12 +84,13 @@ class RuntimeManager:
         }
         self.core.cli.print_session_info(session_info)
 
-        # Show menu
+        # Show menu (V0.0.3.1 includes "why" command)
         menu_options = {
             "voz": "Activar/desactivar modo voz",
             "modo [SAFE|PASSIVE|ACTIVE|ANALYSIS]": "Cambiar modo operacional",
             "sesiones": "Ver sesiones activas",
             "status": "Estado del sistema",
+            "why": "Explicar última decisión",  # V0.0.3.1
             "ayuda": "Mostrar esta ayuda",
             "salir": "Salir del sistema"
         }

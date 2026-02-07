@@ -224,6 +224,54 @@ class IntentParser:
         self._record_intent("unknown", 0.0, "none")
         return "unknown", 0.0
     
+    def parse_all_matches(self, text: str, entities: dict) -> List[Tuple[str, float, List[str]]]:
+        """
+        V0.0.3.1: Generate ALL possible intent matches (hypothesis generation).
+        Returns list of (intent_name, score, matched_patterns).
+        """
+        t = self.norm.run(text)
+        all_matches = []
+        
+        # 1. Check entity inference
+        intent, conf = self._infer_from_entities(entities)
+        if intent:
+            all_matches.append((intent, conf, ["entity_inference"]))
+        
+        # 2. Check soft phrases
+        intent, conf = self._soft_phrase_match(t)
+        if intent and conf > 0:
+            all_matches.append((intent, conf, ["soft_phrase_match"]))
+        
+        # 3. Check all pattern matches
+        for intent_name, patterns in self.mapping.items():
+            matched_patterns = []
+            for pattern in patterns:
+                if re.search(pattern, t, re.IGNORECASE):
+                    matched_patterns.append(pattern)
+            
+            if matched_patterns:
+                conf = 0.9  # Pattern match confidence
+                all_matches.append((intent_name, conf, matched_patterns))
+        
+        # 4. Check keyword matches
+        text_lower = t.lower()
+        text_words = set(text_lower.split())
+        
+        for intent_name, keywords in self.keyword_fallback.items():
+            matches = sum(1 for kw in keywords if kw in text_lower)
+            exact_matches = sum(1 for kw in keywords if kw in text_words)
+            score = matches + (exact_matches * 0.5)
+            
+            if score > 0:
+                confidence = min(0.7, (score / len(keywords)) * 0.8)
+                matched_kw = [kw for kw in keywords if kw in text_lower]
+                all_matches.append((intent_name, confidence, matched_kw))
+        
+        # Sort by confidence
+        all_matches.sort(key=lambda x: x[1], reverse=True)
+        
+        return all_matches
+    
     def _enhanced_keyword_fallback(self, text):
         """Enhanced fallback with better scoring"""
         text_lower = text.lower()

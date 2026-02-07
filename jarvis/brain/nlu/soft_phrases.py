@@ -9,6 +9,31 @@ SOFT_PHRASES = {
     # SYSTEM SKILLS (Base)
     # ============================================================
     
+    "social_greeting": [
+        "hola",
+        "hey",
+        "hi",
+        "buenas",
+        "buenos dias",
+        "buenas tardes",
+        "buenas noches",
+        "que tal",
+        "como estas",
+        "como va",
+        "saludos",
+        "gracias",
+        "muchas gracias",
+        "ok",
+        "vale",
+        "perfecto",
+        "genial",
+        "adios",
+        "chau",
+        "nos vemos",
+        "hasta luego",
+        "bye"
+    ],
+    
     "get_time": [
         "que hora es",
         "dime la hora",

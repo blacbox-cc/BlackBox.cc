@@ -1,6 +1,7 @@
 # brain/nlu/pipeline.py
 """
-NLU Pipeline v0.0.4 - Enhanced with confidence scores, tracing, error handling, and context awareness
+NLU Pipeline v0.0.3.1 - Explicit reasoning with hypothesis generation
+Refactored to produce Decision objects with multiple IntentHypothesis alternatives
 """
 import traceback
 from typing import Dict, List, Optional, Tuple
@@ -9,6 +10,7 @@ from brain.nlu.entities import EntityExtractor
 from brain.nlu.parser import IntentParser
 from system.core.exceptions import NLUError
 from brain.memory.context import ContextManager
+from brain.decision import Decision, IntentHypothesis, create_unknown_decision, create_decision_from_hypotheses
 
 
 class NLUResult:
@@ -42,7 +44,7 @@ class NLUPipeline:
     NLU Pipeline with confidence scoring, debug tracing, and context awareness
     """
     
-    def __init__(self, skills_registry, debug=False, context_manager=None):
+    def __init__(self, skills_registry, debug=False, context_manager=None, runtime_state=None):
         self.norm = Normalizer()
         self.entities = EntityExtractor(skills_registry)
         self.intent = IntentParser(skills_registry)
@@ -50,6 +52,7 @@ class NLUPipeline:
         self.skills_registry = skills_registry
         self.confidence_threshold = 0.5  # Minimum confidence for intent recognition
         self.context = context_manager or ContextManager()  # Always use context
+        self.runtime_state = runtime_state  # NEW: Store decisions here directly
 
     def _log(self, *msg):
         """Log debug messages if debug mode enabled"""
@@ -64,113 +67,166 @@ class NLUPipeline:
         }
         result.trace.append(trace_entry)
         self._log(f"TRACE[{step}]: {details}")
-
-    def process(self, text: str, eventbus) -> Optional[NLUResult]:
+    
+    def generate_hypotheses(self, normalized_text: str, entities: Dict[str, any]) -> List[IntentHypothesis]:
         """
-        Process text through NLU pipeline with confidence scoring and context awareness
+        Generate multiple intent hypotheses for the input.
+        Each hypothesis explains why a particular intent might match.
+        
+        Args:
+            normalized_text: Cleaned/normalized input
+            entities: Extracted entities
+            
+        Returns:
+            List of IntentHypothesis objects, may be empty
+        """
+        hypotheses = []
+        
+        # Ask parser for all possible matches with scores
+        matches = self.intent.parse_all_matches(normalized_text, entities)
+        
+        for intent_name, score, patterns in matches:
+            # Build explanation
+            explanation_parts = []
+            
+            if patterns:
+                pattern_str = patterns[0] if len(patterns) == 1 else f"{len(patterns)} patterns"
+                explanation_parts.append(f"matched {pattern_str}")
+            
+            if entities:
+                entity_list = ", ".join(f"{k}={v}" for k, v in list(entities.items())[:2])
+                explanation_parts.append(f"with entities: {entity_list}")
+            
+            explanation = " ".join(explanation_parts) if explanation_parts else "pattern match"
+            
+            hypothesis = IntentHypothesis(
+                intent_name=intent_name,
+                score=score,
+                matched_patterns=patterns,
+                explanation=explanation,
+                supporting_entities=entities.copy()
+            )
+            
+            hypotheses.append(hypothesis)
+            self._log(f"Hypothesis: {intent_name} (score={score:.2f}) - {explanation}")
+        
+        return hypotheses
+    
+    def select_intent(self, hypotheses: List[IntentHypothesis], raw_input: str, 
+                     normalized_input: str, entities: Dict[str, any]) -> Decision:
+        """
+        Select best intent from hypotheses and create Decision object.
+        Applies deterministic selection rules.
+        
+        Args:
+            hypotheses: List of IntentHypothesis
+            raw_input: Original user text
+            normalized_input: Normalized text
+            entities: Extracted entities
+            
+        Returns:
+            Decision object with selected intent and reasoning
+        """
+        decision = create_decision_from_hypotheses(
+            raw_input=raw_input,
+            normalized_input=normalized_input,
+            hypotheses=hypotheses,
+            entities=entities,
+            confidence_threshold=self.confidence_threshold
+        )
+        
+        self._log(f"Decision: {decision.selected_intent} (confidence={decision.confidence:.2f})")
+        self._log(f"Reasoning: {decision.reasoning}")
+        
+        return decision
+
+    def process(self, text: str, eventbus) -> Decision:
+        """
+        Process text through NLU pipeline with explicit reasoning (v0.0.3.1).
+        Returns Decision object instead of NLUResult.
         
         Args:
             text: Input text to process
-            eventbus: Event bus for emitting results
+            eventbus: Event bus for emitting semantic events
             
         Returns:
-            NLUResult object with intent, entities, and confidence
+            Decision object with intent, hypotheses, and reasoning
         """
-        result = NLUResult(
-            intent="unknown",
-            entities={},
-            raw_text=text.strip(),
-            normalized_text=""
-        )
+        raw = text.strip()
+        
+        # Emit OBSERVATION_CREATED
+        eventbus.emit("cognitive.observation_created", {"text": raw})
+        
+        if not raw:
+            decision = create_unknown_decision(raw, "", "Empty input provided")
+            eventbus.emit("cognitive.decision_made", decision.to_dict())
+            return decision
         
         try:
-            raw = text.strip()
-            if not raw:
-                result.error = "Empty input"
-                self._trace(result, "validation", "Input is empty")
-                return result
-
             # Step 1: Normalization
-            try:
-                clean = self.norm.run(raw)
-                result.normalized_text = clean
-                self._trace(result, "normalize", f"'{raw}' → '{clean}'")
-            except Exception as e:
-                result.error = f"Normalization failed: {str(e)}"
-                self._trace(result, "normalize", f"ERROR: {str(e)}")
-                raise NLUError(result.error, {"input": raw})
-
+            clean = self.norm.run(raw)
+            self._log(f"Normalized: '{raw}' → '{clean}'")
+            
             # Step 2: Entity Extraction
             try:
-                ent = self.entities.extract(clean)
-                result.entities = ent
-                self._trace(result, "entities", f"Found {len(ent)} entities: {list(ent.keys())}")
-                
-                eventbus.emit("nlu.entities.detected", {
-                    "raw": raw,
-                    "normalized": clean,
-                    "entities": ent
-                })
+                entities = self.entities.extract(clean)
+                self._log(f"Entities: {entities}")
             except Exception as e:
-                result.error = f"Entity extraction failed: {str(e)}"
-                self._trace(result, "entities", f"ERROR: {str(e)}")
-                # Don't raise - continue without entities
-                ent = {}
-
-            # Step 3: Intent Parsing with Confidence
-            try:
-                intent_name, confidence = self.intent.parse_with_confidence(clean, ent)
-                result.intent = intent_name
-                result.confidence = confidence
-                
-                self._trace(result, "intent", f"Intent='{intent_name}' confidence={confidence:.2f}")
-                
-                # Get alternative intents if confidence is low
-                if confidence < 0.8:
-                    alternatives = self.intent.get_alternatives(clean, ent, top_n=2)
-                    result.alternatives = alternatives
-                    self._trace(result, "alternatives", f"Alternatives: {alternatives}")
-                
-            except Exception as e:
-                result.error = f"Intent parsing failed: {str(e)}"
-                result.intent = "unknown"
-                result.confidence = 0.0
-                self._trace(result, "intent", f"ERROR: {str(e)}")
-                raise NLUError(result.error, {"normalized": clean, "entities": ent})
-
-            # Step 4: Store in context for future reference
-            try:
-                self.context.add_intent(result.intent, result.confidence, result.entities)
-                self._trace(result, "context", f"Stored in context manager")
-            except Exception as e:
-                # Log but don't fail on context storage
-                self._trace(result, "context", f"WARNING: {str(e)}")
+                self._log(f"Entity extraction warning: {e}")
+                entities = {}
             
-            # Emit NLU intent event
-            eventbus.emit("nlu.intent", result.to_dict())
-            
-            return result
-
-        except NLUError:
-            # Re-raise NLU errors
-            eventbus.emit("nlu.error", {
-                "error": result.error,
-                "text": text,
-                "trace": result.trace
+            # Emit INTERPRETATION_COMPLETED
+            eventbus.emit("cognitive.interpretation_completed", {
+                "raw": raw,
+                "normalized": clean,
+                "entities": entities
             })
-            raise
-        except Exception as e:
-            # Catch unexpected errors
-            result.error = f"Unexpected NLU error: {str(e)}"
-            self._trace(result, "exception", f"Unexpected: {str(e)}")
             
-            print(f"[NLU_ERROR] Unexpected error: {e}")
+            # Step 3: Generate Hypotheses
+            hypotheses = self.generate_hypotheses(clean, entities)
+            self._log(f"Generated {len(hypotheses)} hypotheses")
+            
+            # Step 4: Select Intent and Create Decision
+            decision = self.select_intent(hypotheses, raw, clean, entities)
+            
+            # Store last decision for event handler
+            self._last_decision = decision
+            
+            # V0.0.3.1: Store decision directly in RuntimeState if available
+            if self.runtime_state:
+                self.runtime_state.add_decision(decision)
+            
+            # Step 5: Store in context
+            try:
+                self.context.add_intent(decision.selected_intent, decision.confidence, decision.entities)
+            except Exception as e:
+                self._log(f"Context storage warning: {e}")
+            
+            # Emit DECISION_MADE
+            eventbus.emit("cognitive.decision_made", decision.to_dict())
+            
+            # Backward compatibility: also emit old-style nlu.intent
+            eventbus.emit("nlu.intent", decision.to_dict())
+            
+            return decision
+            
+        except Exception as e:
+            self._log(f"NLU Error: {e}")
             traceback.print_exc()
             
+            # Create error decision
+            decision = create_unknown_decision(
+                raw, 
+                clean if 'clean' in locals() else raw,
+                f"Processing error: {str(e)}"
+            )
+            
             eventbus.emit("nlu.error", {
-                "error": result.error,
-                "text": text,
-                "trace": result.trace,
-                "traceback": traceback.format_exc()
+                "error": str(e),
+                "text": raw,
+                "decision_id": decision.decision_id
             })
-            raise NLUError(result.error, {"input": text})
+            
+            eventbus.emit("cognitive.decision_made", decision.to_dict())
+            
+            return decision

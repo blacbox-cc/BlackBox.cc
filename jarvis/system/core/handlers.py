@@ -103,7 +103,7 @@ class EventHandlers:
             if text:
                 self.core.command_history.append(text)
                 
-                # Check for special commands first
+                # Check for special commands first (including "why")
                 if self.special_commands.is_special_command(text):
                     response = self.special_commands.handle_command(text)
                     self.core.events.emit("jarvis_response", {
@@ -128,12 +128,16 @@ class EventHandlers:
             self.core.logger.log_error("TEXT_INPUT_HANDLER_ERROR", str(e), {"event": event})
 
     def handle_skill_intent(self, event):
-        """Handler for intents processed by NLU with confidence tracking and graceful degradation"""
+        """
+        Handler for intents processed by NLU (v0.0.3.1 Decision-aware).
+        Now handles Decision objects with full reasoning context.
+        """
         start_time = time.time()
         intent = None
         entities = {}
         raw_text = ""
         confidence = 0.0
+        decision_id = None
 
         try:
             payload = event.get("data", {})
@@ -144,6 +148,8 @@ class EventHandlers:
             confidence = payload.get("confidence", 0.0)
             alternatives = payload.get("alternatives", [])
             trace = payload.get("trace")
+            # V0.0.3.1: Get decision_id if available
+            decision_id = payload.get("decision_id")
 
             # Log NLU result with confidence
             self.core.logger.logger.debug(
@@ -182,6 +188,16 @@ class EventHandlers:
                     )
                     return
 
+            # V0.0.3.1: Store decision in history
+            # Reconstruct Decision from payload if needed
+            last_decision = self.core.state.get_last_decision()
+            if last_decision and last_decision.decision_id == decision_id:
+                # Store this decision
+                pass  # Already stored
+            elif decision_id:
+                # Decision exists but not stored yet - this should not happen
+                self.core.logger.logger.debug(f"Decision {decision_id} not found in state")
+
             # Check operational mode permissions
             current_mode = self.core.session_manager.get_session_mode(self.core.current_session_id)
             if not self.core.mode_controller.can_execute_action(current_mode, intent):
@@ -203,10 +219,12 @@ class EventHandlers:
 
             # Dispatch to skill with confidence info and timeout handling
             try:
-                # NEW v0.0.4: Start recording reflection
-                reflection = self.core.reflection_observer.start_recording(
-                    intent, intent, raw_text, confidence, alternatives
-                )
+                # NEW v0.0.4: Start recording reflection (if available)
+                reflection = None
+                if hasattr(self.core, 'reflection_observer'):
+                    reflection = self.core.reflection_observer.start_recording(
+                        intent, intent, raw_text, confidence, alternatives
+                    )
                 
                 # Use parallel execution if confidence is low
                 if confidence < 0.7 and alternatives:
@@ -291,6 +309,21 @@ class EventHandlers:
             
             response_text = self._format_response(intent, result, confidence)
             
+            # NUEVO: Extract actual success from outcome
+            if isinstance(result, dict):
+                outcome = result.get("result", {})
+                if "attempted" in outcome:
+                    # New outcome format
+                    actual_success = outcome.get("success", False)
+                    error_detail = outcome.get("error")
+                else:
+                    # Legacy format
+                    actual_success = result.get("success", True)
+                    error_detail = result.get("error")
+            else:
+                actual_success = True
+                error_detail = None
+            
             # Log the decision made: WHY did we execute this skill?
             decision_log = {
                 "timestamp": time.time(),
@@ -306,10 +339,11 @@ class EventHandlers:
             # Post-skill reflection: Analyze what happened after execution
             reflection_data = {
                 "intent": intent,
-                "success": result.get("success", True) if isinstance(result, dict) else True,
+                "success": actual_success,
                 "entities_used": entities,
                 "result_preview": str(result)[:100] if result else "No result",
-                "duration_ms": int((time.time() - start_time) * 1000)
+                "duration_ms": int((time.time() - start_time) * 1000),
+                "error_detail": error_detail if error_detail else None
             }
             if hasattr(self.core, 'reflection_engine'):
                 try:
@@ -335,7 +369,8 @@ class EventHandlers:
                 "entities": entities,
                 "raw": raw_text,
                 "response": response_text,
-                "confidence": confidence
+                "confidence": confidence,
+                "success": actual_success
             })
             if len(self.core.short_term_memory) > self.core.short_term_memory_max:
                 self.core.short_term_memory = self.core.short_term_memory[-self.core.short_term_memory_max:]
@@ -347,10 +382,9 @@ class EventHandlers:
 
             # Calculate execution metrics
             duration = time.time() - start_time
-            success = result.get("success", True) if isinstance(result, dict) else True
 
             # Logs and metrics
-            self.core.logger.log_command(raw_text, intent, entities, success)
+            self.core.logger.log_command(raw_text, intent, entities, actual_success)
             self.core.logger.log_skill_execution(
                 intent, 
                 {**result, "confidence": confidence} if isinstance(result, dict) else result,
@@ -358,7 +392,7 @@ class EventHandlers:
             )
 
             # Track app usage if open_app
-            if intent == "open_app" and success:
+            if intent == "open_app" and actual_success:
                 app_name = None
                 if isinstance(result, dict):
                     payload_result = result.get("result")
@@ -369,9 +403,12 @@ class EventHandlers:
                 if app_name:
                     self.core.data_collector.track_app_usage(app_name)
 
-            # Log result
-            status_emoji = "✓" if success else "✗"
-            self.core.logger.logger.info(f"{status_emoji} {intent} ({confidence:.2f} conf) executed in {duration:.3f}s")
+            # Log result with honest success status
+            status_emoji = "✓" if actual_success else "✗"
+            log_msg = f"{status_emoji} {intent} ({confidence:.2f} conf) executed in {duration:.3f}s"
+            if not actual_success and error_detail:
+                log_msg += f" - {error_detail}"
+            self.core.logger.logger.info(log_msg)
 
         except JarvisException as e:
             # Handle framework exceptions with user messages

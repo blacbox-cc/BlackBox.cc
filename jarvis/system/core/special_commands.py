@@ -1,6 +1,6 @@
 """
-Special Commands Handler for v0.0.4
-Handles system commands like --debug, --status, --skills
+Special Commands Handler for v0.0.3.1
+Handles system commands including "why" for decision explanation
 """
 
 import logging
@@ -26,6 +26,7 @@ class SpecialCommandsHandler:
             'debug': self._handle_debug,
             'debug on': self._handle_debug_on,
             'debug off': self._handle_debug_off,
+            'why': self._handle_why,  # V0.0.3.1
         }
     
     def is_special_command(self, text: str) -> bool:
@@ -57,6 +58,15 @@ class SpecialCommandsHandler:
                 return f"Error procesando comando: {e}"
         
         return None
+    
+    def _handle_why(self):
+        """V0.0.3.1: Handle 'why' command to explain last decision"""
+        from system.core.special_commands_why import handle_why_command
+        try:
+            handle_why_command(self.core)
+            return ""  # Output already printed by handle_why_command
+        except Exception as e:
+            return f"Error explaining decision: {e}"
     
     def _handle_debug(self):
         """Toggle debug mode"""

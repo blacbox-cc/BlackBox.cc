@@ -1,6 +1,7 @@
 # core/lifecycle/runtime/state.py
 import threading
 import time
+from collections import deque
 
 
 class RuntimeState:
@@ -9,6 +10,9 @@ class RuntimeState:
     def __init__(self):
         self._state = "INIT"
         self._cond = threading.Condition()
+        # V0.0.3.1: Decision history for "why" command
+        self.decision_history = deque(maxlen=20)
+        self._decision_lock = threading.Lock()
 
     def set(self, value):
         if value not in self.STATES:
@@ -40,3 +44,19 @@ class RuntimeState:
 
     def is_running(self):
         return self.get() == "RUNNING"
+    
+    # V0.0.3.1: Decision management
+    def add_decision(self, decision):
+        """Store decision in history (thread-safe)"""
+        with self._decision_lock:
+            self.decision_history.append(decision)
+    
+    def get_last_decision(self):
+        """Get most recent decision (thread-safe)"""
+        with self._decision_lock:
+            return self.decision_history[-1] if self.decision_history else None
+    
+    def get_decision_history(self, n=20):
+        """Get last N decisions (thread-safe)"""
+        with self._decision_lock:
+            return list(self.decision_history)[-n:]

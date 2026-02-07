@@ -10,6 +10,13 @@ EVENT_NLU_ENTITIES_DETECTED = "nlu.entities.detected"
 EVENT_NLU_INTENT = "nlu.intent"
 EVENT_NLU_ERROR = "nlu.error"
 
+# V0.0.3.1 Cognitive events
+EVENT_OBSERVATION_CREATED = "cognitive.observation_created"
+EVENT_INTERPRETATION_COMPLETED = "cognitive.interpretation_completed"
+EVENT_DECISION_MADE = "cognitive.decision_made"
+EVENT_ACTION_EXECUTED = "cognitive.action_executed"
+EVENT_OUTCOME_RECORDED = "cognitive.outcome_recorded"
+
 # Runtime states
 STATE_BOOTING = "BOOTING"
 STATE_READY = "READY"

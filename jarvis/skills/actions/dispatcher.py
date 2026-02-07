@@ -178,9 +178,22 @@ class SkillDispatcher:
                 self._log("warning", f"[DISPATCHER] {intent} returned non-dict: {type(result)}")
                 result = {"success": True, "result": result}
             
+            # NUEVO: Extract success from outcome contract (attempted, success, error, data)
+            # Support both old {"success": bool} and new outcome format
+            if "attempted" in result:
+                # New outcome format: {attempted, success, error, data}
+                success = result.get("success", False)
+                error_msg = result.get("error")
+            else:
+                # Legacy format: {"success": bool, ...}
+                success = result.get("success", True)
+                error_msg = result.get("error") or result.get("message")
+            
             # 6. Record execution
-            success = result.get("success", True)
-            self._record_execution(intent, success, duration_ms)
+            self._record_execution(intent, success, duration_ms, error_msg)
+            
+            # FASE 1: Extract metadata from result if present
+            metadata = result.get("metadata", {})
             
             # 7. Format response
             response = {
@@ -190,9 +203,19 @@ class SkillDispatcher:
                 "execution_time_ms": duration_ms
             }
             
-            log_level = "info" if success else "warning"
-            log_msg = f"[DISPATCHER] {intent} {'✓' if success else '✗'} ({duration_ms:.1f}ms)"
-            self._log(log_level, log_msg)
+            # FASE 1: Preserve metadata at top level for observability
+            if metadata:
+                response["metadata"] = metadata
+            
+            # Enhanced logging with error detail
+            if success:
+                log_msg = f"[DISPATCHER] {intent} ✓ ({duration_ms:.1f}ms)"
+                self._log("info", log_msg)
+            else:
+                log_msg = f"[DISPATCHER] {intent} ✗ ({duration_ms:.1f}ms)"
+                if error_msg:
+                    log_msg += f" - {error_msg}"
+                self._log("warning", log_msg)
             
             return response
             
