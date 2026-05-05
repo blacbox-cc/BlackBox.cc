@@ -1,0 +1,7 @@
+Limpieza	rm -rf __pycache__	Borrar basura de compilación de Python.
+
+Verificación	python -m py_compile main.py	Verificar que no haya errores de sintaxis antes de correr.
+
+Ejecución	python main.py	Iniciar el loop maestro del orquestador.
+
+Inspección Win	Get-Content logs/events.jsonl -Wait	(PowerShell) Ver los logs en tiempo real.
